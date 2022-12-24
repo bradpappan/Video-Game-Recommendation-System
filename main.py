@@ -5,7 +5,6 @@ from scipy import sparse
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
 from random import randint
-import gradio as gr
 
 df = pd.read_csv("metacritic_critic_reviews.csv", error_bad_lines=False, encoding='utf-8')
 print(df.columns[df.isna().any()].tolist())
@@ -252,9 +251,3 @@ def recommend_games():
 
 
 recommend_games()
-
-
-recommender_interface = gr.Interface(game_recommendation, ["text"],
-                           ["text"], title="Top 5 Game Recommendations", description="This is a Recommendation Engine based on how Metacritic professional reviewers have scored games up to 2019 (apologies for the out of date data). Simply input a game you have enjoyed playing and it should return 5 games that have been rated similarily")
-
-recommender_interface.launch(debug=True)
