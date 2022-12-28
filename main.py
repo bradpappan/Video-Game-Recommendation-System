@@ -1,178 +1,183 @@
 import pandas as pd
 import numpy as np
 import scipy as sp
+import matplotlib.pyplot as plt
+import logging
 from scipy import sparse
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
 from random import randint
 
 df = pd.read_csv("metacritic_critic_reviews.csv", error_bad_lines=False, encoding='utf-8')
+df.head()
+df.info()
+
 print(df.columns[df.isna().any()].tolist())
+df.isnull().sum()
 df.dropna(inplace=True)
 
 
-def add_year(full_date):
-    datetime_object = datetime.strptime(full_date, '%b %d, %Y')
+def year_addition(date_whole):
+    datetime_object = datetime.strptime(date_whole, '%b %d, %Y')
     return datetime_object.year
 
 
-df['year'] = df['date'].apply(add_year)
+df['year'] = df['date'].apply(year_addition)
 
 
-def year_game(row):
+def game_year(row):
     calendar_year = str(row['year'])
-    year_game_combined = str(row['game']) + " (" + calendar_year + ")"
-    return year_game_combined
+    game_year_combined = str(row['game']) + " (" + calendar_year + ")"
+    return game_year_combined
 
 
-df['game'] = df.apply(year_game, axis=1)
+df['game'] = df.apply(game_year, axis=1)
+df.head()
 
-unique_titles = df['game'].unique()
-title_sum_score = {}
-
-for i in unique_titles:
-    title_sum_score[i] = 0.0
-
-
-def total_score_per_title(row):
-    title_sum_score[row['game']] += float(row['score'])
+special_titles = df['game'].unique()
+sum_of_score = {}
+for i in special_titles:
+    sum_of_score[i] = 0.0
 
 
-df.apply(total_score_per_title, axis=1)
+def total_score(row):
+    sum_of_score[row['game']] += float(row['score'])
 
-sum_df = pd.DataFrame.from_dict(title_sum_score, orient='index', columns=['score'])
+
+df.apply(total_score, axis=1)
+sum_df = pd.DataFrame.from_dict(sum_of_score, orient='index', columns=['score'])
 sum_df = sum_df.reset_index().rename(columns={'index': 'game'}).sort_values('score', ascending=False)
 
-top100_sum_df = sum_df.iloc[:100]
-top100_sum_df['game'].unique()
+sum_df.head()
 
-random = randint(0, int(top100_sum_df.shape[0]) - 1)
+top_100titles_sum = sum_df.iloc[:100]
+top_100titles_sum['game'].unique()
+
+random = randint(0, int(top_100titles_sum.shape[0]) - 1)
 print(random)
-
-game_name = top100_sum_df['game'].iloc[random]
+game_name = top_100titles_sum['game'].iloc[random]
 print(game_name)
+review_current = df.loc[
+    df['game'] == game_name]
 
-current_game_reviews = df.loc[df['game'] == game_name]
+selected_game_indexes = review_current.index
 
-current_game_indexes = current_game_reviews.index
+random = randint(0, int(selected_game_indexes.shape[0]) - 1)
 
-random = randint(0, int(current_game_indexes.shape[0]) - 1)
+selected_review_index = selected_game_indexes[random]
+selected_review_index
 
-current_review_index = current_game_indexes[random]
-current_review_index
-
-profile = {'game': [],
-           'name': [],
-           'score': []}
-
-
-def loop_10_games():
-    counter = 0
-    inputs = []
-
-    print(
-        "Based on the sentiment of each review quote, please score them on how relevant it is to your own perspective "
-        "of that game title.")
-    print("These are the scores with the corresponding responses:")
-    print("""
-  2 - I would rate the game MUCH better /n 
-  1 - I would rate the game a little better /n 
-  0 - This is spot on /n 
-  -1 - I would rate the game worst /n
-  -2 - I would rate the game MUCH worst /n
-  N - No comment
-   """)
-
-    while counter < 10:
-
-        random_top_100 = randint(0, int(top100_sum_df.shape[0]) - 1)
-
-        while top100_sum_df['game'].iloc[random_top_100] in inputs:
-            random_top_100 = randint(0, int(top100_sum_df.shape[0]) - 1)
-        current_game = top100_sum_df['game'].iloc[random_top_100]
-        current_game_reviews = df.loc[df['game'] == current_game]
-
-        current_game_indexes = current_game_reviews.index
-        random = randint(0, int(current_game_indexes.shape[0]) - 1)
-        current_loc = current_game_indexes[random]
-        print("Do you agree with the sentiment of this quote? Rate the relevancy between -2 to +2")
-        print(df['game'].iloc[current_loc])
-        print(df['review'].iloc[current_loc])
-
-        user_response = input()
-        user_responses = ["I would rate the game MUCH better", "I would rate the game a little better", "This is spot "
-                                                                                                        "on",
-                          "No comment", "I would rate the game worst", "I would rate the game much worst"]
-        user_increments = [20, 10, 0, 'NaN', -20, -30]
-
-        inputs.append(top100_sum_df['game'].iloc[random_top_100])
-
-        if user_response == "1":  # "I would rate the game a little better"
-            user_score = int(df['score'].iloc[current_loc]) + 10
-
-            if user_score > 100:
-                user_score == 100
-
-            profile['game'].append(df['game'].iloc[current_loc])
-            profile['name'].append(1001)
-            profile['score'].append(user_score)
-            counter += 1
-        elif user_response == "2":  # "I would rate the game MUCH better"
-            user_score = int(df['score'].iloc[current_loc]) + 20
-            if user_score > 100:
-                user_score == 100
-            profile['game'].append(df['game'].iloc[current_loc])
-            profile['name'].append(1001)
-            profile['score'].append(user_score)
-            counter += 1
-        elif user_response == "0":  # "This is spot on"
-            user_score = int(df['score'].iloc[current_loc])
-            profile['game'].append(df['game'].iloc[current_loc])
-            profile['name'].append(1001)
-            profile['score'].append(user_score)
-            counter += 1
-        elif user_response == "-1":  # "I would rate the game worst"
-            user_score = int(df['score'].iloc[current_loc]) - 20
-            if user_score < 20:
-                user_score == 20
-            profile['game'].append(df['game'].iloc[current_loc])
-            profile['name'].append(1001)
-            profile['score'].append(user_score)
-            counter += 1
-        elif user_response == "-2":  # "I would rate the game much worst"
-            user_score = int(df['score'].iloc[current_loc]) - 30
-            if user_score < 20:
-                user_score == 20
-            profile['game'].append(df['game'].iloc[current_loc])
-            profile['name'].append(1001)
-            profile['score'].append(user_score)
-            counter += 1
-
-        elif user_response == "N":  # "No comment"
-            continue
-        elif user_response == "End":
-            break
-        else:
-            continue
+user_feedback = {'game': [],
+                 'name': [],
+                 'score': []}
 
 
-loop_10_games()
-my_ratings = pd.DataFrame(profile)
+def display_ui():
+    try:
+        count = 0
+
+        inputs = []
+        print(
+            "Based on each review quote, please respond with what you think is appropriate score from the list below ")
+        print("Here is the scoring list to respond with:")
+        print("""
+      2 - The game is WAY better /n 
+      1 - The game is somewhat better /n 
+      0 - The game review is equivalent to what I think /n 
+      -1 - The game is somewhat worse  /n
+      -2 - The game is WAY worse /n
+      N - No comment
+       """)
+        while count < 10:
+
+            random_top_100 = randint(0, int(top_100titles_sum.shape[0]) - 1)
+            while top_100titles_sum['game'].iloc[random_top_100] in inputs:
+                random_top_100 = randint(0, int(top_100titles_sum.shape[0]) - 1)
+            current_game = top_100titles_sum['game'].iloc[random_top_100]
+            review_current = df.loc[df['game'] == current_game]
+
+            selected_game_indexes = review_current.index
+            random = randint(0, int(selected_game_indexes.shape[0]) - 1)
+            current_loc = selected_game_indexes[random]
+
+            print("Do you agree with review listed below? Rate how you feel about it -2 to +2")
+            print(df['game'].iloc[current_loc])
+            print(df['review'].iloc[current_loc])
+
+            input_from_user = input()
+            input_from_users = ["The game is WAY better", "The game is somewhat better",
+                                "The game review is equivalent to what I think", "No comment", "The game is somewhat "
+                                                                                               "worse",
+                                "The game is WAY worse"]
+            user_increments = [20, 10, 0, 'NaN', -20, -30]
+            inputs.append(top_100titles_sum['game'].iloc[random_top_100])
+
+            if input_from_user == "1":
+                user_score = int(df['score'].iloc[current_loc]) + 10
+                if user_score > 100:
+                    user_score == 100
+                user_feedback['game'].append(df['game'].iloc[current_loc])
+                user_feedback['name'].append(1001)
+                user_feedback['score'].append(user_score)
+                count += 1
+            elif input_from_user == "2":
+                user_score = int(df['score'].iloc[current_loc]) + 20
+                if user_score > 100:
+                    user_score == 100
+                user_feedback['game'].append(df['game'].iloc[current_loc])
+                user_feedback['name'].append(1001)
+                user_feedback['score'].append(user_score)
+                count += 1
+            elif input_from_user == "0":
+                user_score = int(df['score'].iloc[current_loc])
+                user_feedback['game'].append(df['game'].iloc[current_loc])
+                user_feedback['name'].append(1001)
+                user_feedback['score'].append(user_score)
+                count += 1
+            elif input_from_user == "-1":
+                user_score = int(df['score'].iloc[current_loc]) - 20
+                if user_score < 20:
+                    user_score == 20
+                user_feedback['game'].append(df['game'].iloc[current_loc])
+                user_feedback['name'].append(1001)
+                user_feedback['score'].append(user_score)
+                count += 1
+            elif input_from_user == "-2":
+                user_score = int(df['score'].iloc[current_loc]) - 30
+                if user_score < 20:
+                    user_score == 20
+                user_feedback['game'].append(df['game'].iloc[current_loc])
+                user_feedback['name'].append(1001)
+                user_feedback['score'].append(user_score)
+                count += 1
+
+            elif input_from_user == "N":
+                continue
+            elif input_from_user == "End":
+                break
+            else:
+                continue
+    except Exception as Argument:
+        f = open("log.txt", "a")
+        f.write(str(Argument))
+        f.close()
+
+
+display_ui()
+my_ratings = pd.DataFrame(user_feedback)
 my_ratings.head()
-
 my_ratings
-
 main_df = df[['game', 'name', 'score']]
 
 
-def add_profile(current_df, profile_df):
+def create_profile(current_df, profile_df):
     complete_df = pd.concat([current_df, profile_df], axis=0)
     complete_df.columns = ['itemID', 'userID', 'rating']
     complete_df['reviews'] = complete_df.groupby(['itemID'])['rating'].transform('count')
     return complete_df
 
 
-updated_df = add_profile(main_df, my_ratings)
+updated_df = create_profile(main_df, my_ratings)
 
 
 def pivot_data_similarity(full_df):
@@ -180,15 +185,11 @@ def pivot_data_similarity(full_df):
     pivot_n = pivot.apply(lambda x: (x - np.mean(x)) / (np.max(x) - np.min(x)), axis=1)
 
     pivot_n.fillna(0, inplace=True)
-
     pivot_n = pivot_n.T
-
     pivot_n = pivot_n.loc[:, (pivot_n != 0).any(axis=0)]
-
     piv_sparse = sp.sparse.csr_matrix(pivot_n.values)
 
     game_similarity = cosine_similarity(piv_sparse)
-
     sim_matrix_df = pd.DataFrame(game_similarity, index=pivot_n.index, columns=pivot_n.index)
 
     return sim_matrix_df
@@ -196,36 +197,30 @@ def pivot_data_similarity(full_df):
 
 new_sim_df = pivot_data_similarity(updated_df)
 
-most_similar_critics = []
+new_sim_df.head()
+
+similar_reviews = []
 
 
 def game_recommendation(reviewer):
-    """
-    This function will return the top 5 reviewers with the highest cosine similarity value and show their match percentage.
-
-    """
     top_5_most_similar = []
-
     number = 1
     print('Recommended critics based on how similar your tastes are:')
-
     for n in new_sim_df.sort_values(by=reviewer, ascending=False).index[1:6]:
         top_5_most_similar.append(n)
-
         print("#" + str(number) + ": " + n + ", " + str(round(new_sim_df[reviewer][n] * 100, 2)) + "% " + "match")
         number += 1
     return top_5_most_similar
 
 
-most_similar_critics = game_recommendation(1001)
+similar_reviews = game_recommendation(1001)
 
-critic_titles = df[df['name'] == most_similar_critics[0]].sort_values('score', ascending=False)
+critic_titles = df[df['name'] == similar_reviews[0]].sort_values('score', ascending=False)
 
 
 def top_critic(critic):
     number = 1
     print("These are your most similar critic\'s ({}) highest scored games:\n".format(critic))
-
     for n in range(len(critic_titles['game'][:10])):
         print(
             "#" + str(number) + ": " + str(critic_titles.iloc[n]['game']) + ", " + str(critic_titles.iloc[n]['score']))
@@ -235,19 +230,17 @@ def top_critic(critic):
 top_critic(critic_titles.iloc[0]['name'])
 
 
-def recommend_games():
+def recommend_games_from_reviews():
     profile = {'game': [], 'name': [], 'score': []}
-
-    loop_10_games()
+    display_ui()
     profile_df = pd.DataFrame(profile)
 
-    full_df = add_profile(main_df, profile_df)
+    full_df = create_profile(main_df, profile_df)
     new_sim_df = pivot_data_similarity(full_df)
-    most_similar_critics = []
-    most_similar_critics = game_recommendation(1001)
-    critic_titles = df[df['name'] == most_similar_critics[0]].sort_values('score', ascending=False)
-
+    similar_reviews = []
+    similar_reviews = game_recommendation(1001)
+    critic_titles = df[df['name'] == similar_reviews[0]].sort_values('score', ascending=False)
     top_critic(critic_titles.iloc[0]['name'])
 
 
-recommend_games()
+recommend_games_from_reviews()
