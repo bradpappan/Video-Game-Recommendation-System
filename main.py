@@ -8,7 +8,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
 from random import randint
 
-df = pd.read_csv("metacritic_critic_reviews.csv", error_bad_lines=False, encoding='utf-8')
+df = pd.read_csv("metacritic_critic_reviews.csv")
 df.head()
 df.info()
 
@@ -54,9 +54,9 @@ top_100titles_sum = sum_df.iloc[:100]
 top_100titles_sum['game'].unique()
 
 random = randint(0, int(top_100titles_sum.shape[0]) - 1)
-print(random)
+
 game_name = top_100titles_sum['game'].iloc[random]
-print(game_name)
+
 review_current = df.loc[
     df['game'] == game_name]
 
@@ -165,8 +165,8 @@ def display_ui():
 
 display_ui()
 my_ratings = pd.DataFrame(user_feedback)
-my_ratings.head()
 my_ratings
+
 main_df = df[['game', 'name', 'score']]
 
 
@@ -197,50 +197,48 @@ def pivot_data_similarity(full_df):
 
 new_sim_df = pivot_data_similarity(updated_df)
 
-new_sim_df.head()
-
 similar_reviews = []
 
 
-def game_recommendation(reviewer):
+def game_recommendation(review_name):
     top_5_most_similar = []
     number = 1
     print('Recommended critics based on how similar your tastes are:')
-    for n in new_sim_df.sort_values(by=reviewer, ascending=False).index[1:6]:
+    for n in new_sim_df.sort_values(by=review_name, ascending=False).index[1:6]:
         top_5_most_similar.append(n)
-        print("#" + str(number) + ": " + n + ", " + str(round(new_sim_df[reviewer][n] * 100, 2)) + "% " + "match")
+        print("#" + str(number) + ": " + n + ", " + str(round(new_sim_df[review_name][n] * 100, 2)) + "% " + "match")
         number += 1
     return top_5_most_similar
 
 
 similar_reviews = game_recommendation(1001)
 
-critic_titles = df[df['name'] == similar_reviews[0]].sort_values('score', ascending=False)
+reviewing_name = df[df['name'] == similar_reviews[0]].sort_values('score', ascending=False)
 
 
-def top_critic(critic):
-    number = 1
-    print("These are your most similar critic\'s ({}) highest scored games:\n".format(critic))
-    for n in range(len(critic_titles['game'][:10])):
+def top_reviewer(reviewer):
+    reviewer_num = 1
+    print("These are your most similar critic\'s ({}) highest scored games:\n".format(reviewer))
+    for n in range(len(reviewing_name['game'][:10])):
         print(
-            "#" + str(number) + ": " + str(critic_titles.iloc[n]['game']) + ", " + str(critic_titles.iloc[n]['score']))
-        number += 1
+            "#" + str(reviewer_num) + ": " + str(reviewing_name.iloc[n]['game']) + ", " + str(reviewing_name.iloc[n]['score']))
+        reviewer_num += 1
 
 
-top_critic(critic_titles.iloc[0]['name'])
+top_reviewer(reviewing_name.iloc[0]['name'])
 
 
 def recommend_games_from_reviews():
-    profile = {'game': [], 'name': [], 'score': []}
+    user_feeback = {'game': [], 'name': [], 'score': []}
     display_ui()
-    profile_df = pd.DataFrame(profile)
+    profile_df = pd.DataFrame(user_feeback)
 
     full_df = create_profile(main_df, profile_df)
     new_sim_df = pivot_data_similarity(full_df)
     similar_reviews = []
     similar_reviews = game_recommendation(1001)
-    critic_titles = df[df['name'] == similar_reviews[0]].sort_values('score', ascending=False)
-    top_critic(critic_titles.iloc[0]['name'])
+    reviewing_name = df[df['name'] == similar_reviews[0]].sort_values('score', ascending=False)
+    top_reviewer(reviewing_name.iloc[0]['name'])
 
 
 recommend_games_from_reviews()
